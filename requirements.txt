@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+python-multipart
+aiofiles
+torch
+opencv-python
+ultralytics

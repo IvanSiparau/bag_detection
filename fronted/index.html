@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Bag Detection</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Bag Detection</h1>
+
+    <input type="file" id="videoUpload" accept="video/*">
+    <button onclick="uploadVideo()">Загрузить видео</button>
+    <button id="downloadBtn" style="display:none;" onclick="downloadVideo()">Скачать обработанное видео</button>
+
+    <p id="status"></p>
+  </div>
+
+  <script>
+    let currentFileId = null;
+
+    async function uploadVideo() {
+      const fileInput = document.getElementById("videoUpload");
+      const status = document.getElementById("status");
+      const downloadBtn = document.getElementById("downloadBtn");
+
+      if (!fileInput.files.length) {
+        alert("Выберите видео!");
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append("file", file);
+
+      status.textContent = "Идет обработка видео...";
+      downloadBtn.style.display = "none";
+
+      try {
+        const response = await fetch("/upload", {
+          method: "POST",
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Ошибка сервера: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        status.textContent = data.message;
+        
+        currentFileId = data.download_url.split('/').pop();
+        downloadBtn.style.display = "block";
+        
+      } catch (err) {
+        status.textContent = "Ошибка при загрузке видео: " + err.message;
+        console.error("Upload error:", err);
+      }
+    }
+
+    function downloadVideo() {
+      if (!currentFileId) {
+        alert("Сначала загрузите и обработайте видео!");
+        return;
+      }
+      window.location.href = `/download/${currentFileId}`;
+    }
+  </script>
+</body>
+</html>
