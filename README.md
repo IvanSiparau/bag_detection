@@ -14,3 +14,4 @@ docker compose up -d
 ```
 
 After running, open in browser: http://localhost:8000
+
