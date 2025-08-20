@@ -43,7 +43,6 @@ class YOLOBagDetector:
 
         frame_idx = 0
         unique_bag = set()
-        positions_state = set()
 
         with tqdm(total=total_frames, desc="Processing frames", unit="frame") as pbar:
             while True:

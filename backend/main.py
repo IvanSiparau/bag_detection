@@ -4,9 +4,9 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import shutil
 
 from cv_model.yolo_pipline import YOLOBagDetector
-
 
 app = FastAPI(title="Bag Detection App")
 
@@ -20,8 +20,10 @@ app.add_middleware(
 
 BASE_DIR = os.path.dirname(__file__)
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "../fronted"))
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
+
+DATA_DIR = os.path.join(BASE_DIR, "data")
+UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
+OUTPUT_DIR = os.path.join(DATA_DIR, "outputs")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -30,7 +32,6 @@ if not os.path.exists(FRONTEND_DIR):
     raise RuntimeError(f"Frontend directory not found: {FRONTEND_DIR}")
 
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
-
 
 MODEL_PATH = os.path.join(os.path.dirname(BASE_DIR), "cv_model", "best.pt")
 print(f"Looking for model at: {MODEL_PATH}")
@@ -55,7 +56,7 @@ async def upload_video(file: UploadFile = File(...)):
 
     result_path = detector.predict(input_path, n_frames=2, conf=0.5)
 
-    os.replace(result_path, output_path)
+    shutil.move(result_path, output_path)
 
     return JSONResponse({
         "message": "Видео обработано",
