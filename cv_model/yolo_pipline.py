@@ -1,6 +1,7 @@
 from ultralytics import YOLO
 import cv2
 import os
+from tqdm import tqdm
 
 class YOLOBagDetector:
     def __init__(self, yolo_weights_path='best.pt', device="cpu"):
@@ -14,6 +15,7 @@ class YOLOBagDetector:
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
         out_path = os.path.splitext(video_path)[0] + "_result.mp4"
         out = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
@@ -23,32 +25,34 @@ class YOLOBagDetector:
         frame_idx = 0
         unique_bag = set()
 
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
+        with tqdm(total=total_frames, desc="Processing frames", unit="frame") as pbar:
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
 
-            if frame_idx % n_frames == 0:
-                try:
-                    results = self.model.track(frame, conf=conf, persist=True, verbose=False)[0]
+                if frame_idx % n_frames == 0:
+                    try:
+                        results = self.model.track(frame, conf=conf, persist=True, verbose=False)[0]
 
-                    if results.boxes.id is not None and len(results.boxes.id) > 0:
-                        for box, track_id in zip(results.boxes.xyxy, results.boxes.id):
-                            unique_bag.add(int(track_id))
-                            x1, y1, x2, y2 = map(int, box.tolist())
-                            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                            cv2.putText(frame, f"bag {int(track_id)}", (x1, y1 - 5),
-                                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                        if results.boxes.id is not None and len(results.boxes.id) > 0:
+                            for box, track_id in zip(results.boxes.xyxy, results.boxes.id):
+                                unique_bag.add(int(track_id))
+                                x1, y1, x2, y2 = map(int, box.tolist())
+                                cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+                                cv2.putText(frame, f"bag {int(track_id)}", (x1, y1 - 5),
+                                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-                except Exception as e:
-                    print(f"Ошибка обработки кадра {frame_idx}: {e}")
+                    except Exception as e:
+                        print(f"Ошибка обработки кадра {frame_idx}: {e}")
 
-                cv2.putText(frame, f"count: {len(unique_bag)}", (20, 40),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 3)
+                    cv2.putText(frame, f"count: {len(unique_bag)}", (20, 40),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 3)
 
-                out.write(frame)
+                    out.write(frame)
 
-            frame_idx += 1
+                frame_idx += 1
+                pbar.update(1)
 
         cap.release()
         out.release()
