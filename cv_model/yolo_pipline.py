@@ -13,20 +13,27 @@ class YOLOBagDetector:
                 self.model = YOLO(yolo_weights_path).to('cpu')
         else:
             self.model = YOLO(yolo_weights_path).to('cpu')
-        self.left_line = [0, 604, 380, 246]
-        self.right_line = [735, 275, 596, 645]
+        self.left_line = [1, 325, 204, 130]
+        self.right_line = [284, 348, 402, 147]
+        self.cross_line = [116,250,223, 250]
+
+    def _point_side_of_line(self, cx, cy):
+        if cy < self.cross_line[1]:
+            return "above"
+        return "below"
+
 
     def _is_center_between_lines(self, cx, cy):
         def is_left_of_line(x, y, line):
             x1, y1, x2, y2 = line
             return (x2 - x1) * (y - y1) - (y2 - y1) * (x - x1) > 0
 
-        return not is_left_of_line(cx, cy, self.left_line) and is_left_of_line(cx, cy, self.right_line)
+        return is_left_of_line(cx, cy, self.left_line) and not is_left_of_line(cx, cy, self.right_line)
     
     def _is_center_inside_box(self, cx, cy, box):
         return box[0] < cx < box[2] and box[1] < cy < box[3]
 
-    def predict(self, video_path, n_frames=2, conf=0.7):
+    def predict(self, video_path, n_frames=2, conf=0.6):
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise ValueError(f"Не удалось открыть видео: {video_path}")
@@ -43,6 +50,8 @@ class YOLOBagDetector:
 
         frame_idx = 0
         unique_bag = set()
+        prev_positions = {}
+        count_out = 0
 
         with tqdm(total=total_frames, desc="Processing frames", unit="frame") as pbar:
             while True:
@@ -63,12 +72,22 @@ class YOLOBagDetector:
                                     cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
                                     cv2.putText(frame, f"bag {int(track_id)}", (x1, y1 - 5),
                                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                                    bag_list.append([
-                                        int(track_id),
-                                        [x1, y1, x2, y2]
-                                    ])
+                                    side = self._point_side_of_line(cx, cy)
+                                    prev_side = prev_positions.get(int(track_id))
 
+                                    if prev_side == "below" and side == "above":
+                                        if count_out == 0:
+                                            bag_list.append([
+                                                int(track_id),
+                                                [x1, y1, x2, y2]
+                                            ])
+                                        else:
+                                          count_out -= 1
 
+                                    elif side == "below" and prev_side == "above":
+                                        count_out += 1
+
+                                    prev_positions[int(track_id)] = side
                             
                             bags_to_add = []
 
